@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>五七的信箱</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="信箱">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2b2b2e">
+<style>
+  :root{
+    --bg:#2b2b2e; --stripe:#323236; --paper:#ecebe6; --paper-line:#d9d7cf;
+    --ink:#3a3a3d; --muted:#8d8c88; --orange:#d97757; --orange-d:#b85f42;
+    --env:#d8d6cf; --env-d:#c4c1b8; --gray:#9a9a9e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:repeating-linear-gradient(0deg,var(--bg) 0 14px,var(--stripe) 14px 28px);
+    color:var(--paper); font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+    min-height:100%; padding:env(safe-area-inset-top) 0 40px;
+  }
+  .wrap{max-width:440px;margin:0 auto;padding:18px 16px}
+  header{display:flex;align-items:flex-end;gap:12px;margin:8px 0 18px}
+  .px{image-rendering:pixelated;display:block}
+  .title{flex:1}
+  .title h1{margin:0;font-size:20px;letter-spacing:2px;font-weight:600}
+  .title p{margin:4px 0 0;font-size:12px;color:var(--gray)}
+  .today{
+    background:#1f1f22;border:2px solid #444;border-radius:4px;padding:10px 12px;margin-bottom:16px;
+    font-size:13px;color:#cfcfcf;line-height:1.6
+  }
+  .today b{color:var(--orange)}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .env{
+    position:relative;aspect-ratio:4/3;border-radius:3px;cursor:pointer;
+    background:var(--env);box-shadow:0 2px 0 var(--env-d);
+    display:flex;align-items:flex-end;justify-content:center;
+    transition:transform .15s;
+  }
+  .env:active{transform:scale(.94)}
+  .env::before{ /* flap */
+    content:"";position:absolute;left:0;right:0;top:0;height:55%;
+    background:linear-gradient(to bottom right,transparent 49.5%,var(--env-d) 50%) left/50% 100% no-repeat,
+               linear-gradient(to bottom left,transparent 49.5%,var(--env-d) 50%) right/50% 100% no-repeat;
+    opacity:.9
+  }
+  .env .d{position:relative;font-size:9px;color:#6d6c68;margin-bottom:3px;font-family:ui-monospace,Menlo,monospace}
+  .env .seal{
+    position:absolute;top:40%;left:50%;width:12px;height:12px;margin:-6px 0 0 -6px;
+    background:var(--orange);border-radius:50%;box-shadow:inset -2px -2px 0 var(--orange-d);
+  }
+  .env.locked{opacity:.45}
+  .env.locked .seal{background:#888;box-shadow:inset -2px -2px 0 #666}
+  .env.opened{background:#bdbab1}
+  .env.opened .seal{display:none}
+  .env.opened::after{content:"✓";position:absolute;top:2px;right:4px;font-size:9px;color:#7a776f}
+  .env.isToday{outline:2px solid var(--orange);outline-offset:2px;animation:bob 1.6s ease-in-out infinite}
+  .env.bday{background:#e9d4c8}
+  .env.bday .seal{width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:2px;transform:rotate(45deg)}
+  @keyframes bob{50%{transform:translateY(-3px)}}
+
+  .toast{
+    position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(20px);
+    background:#1b1b1d;border:2px solid var(--orange);color:#eee;padding:10px 16px;border-radius:4px;
+    font-size:14px;opacity:0;pointer-events:none;transition:.25s;max-width:85%;text-align:center
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* overlay */
+  .ov{position:fixed;inset:0;background:rgba(15,15,17,.82);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}
+  .ov.show{display:flex}
+  .stage{width:100%;max-width:400px;position:relative}
+  .bigenv{
+    width:100%;aspect-ratio:4/3;background:var(--env);border-radius:4px;position:relative;
+    box-shadow:0 4px 0 var(--env-d);margin:0 auto;transition:transform .5s, opacity .4s
+  }
+  .bigenv::before{
+    content:"";position:absolute;left:0;right:0;top:0;height:55%;
+    background:linear-gradient(to bottom right,transparent 49.6%,var(--env-d) 50%) left/50% 100% no-repeat,
+               linear-gradient(to bottom left,transparent 49.6%,var(--env-d) 50%) right/50% 100% no-repeat;
+  }
+  .bigseal{
+    position:absolute;top:44%;left:50%;width:54px;height:54px;margin:-27px 0 0 -27px;cursor:pointer;
+  }
+  .bigseal .h{position:absolute;top:0;width:27px;height:54px;background:var(--orange);
+    box-shadow:inset -4px -4px 0 var(--orange-d);transition:transform .45s ease-in, opacity .45s}
+  .bigseal .h.l{left:0;border-radius:27px 0 0 27px}
+  .bigseal .h.r{right:0;border-radius:0 27px 27px 0}
+  .bigseal .star{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#f4d9cd;font-size:24px;pointer-events:none;transition:opacity .2s}
+  .bigseal.crack .h.l{transform:translate(-18px,30px) rotate(-35deg);opacity:0}
+  .bigseal.crack .h.r{transform:translate(18px,30px) rotate(35deg);opacity:0}
+  .bigseal.crack .star{opacity:0}
+  .hint{text-align:center;font-size:12px;color:var(--gray);margin-top:12px}
+
+  .letter{
+    display:none;background:
+      repeating-linear-gradient(0deg,var(--paper) 0 27px,var(--paper-line) 27px 28px);
+    color:var(--ink);border-radius:3px;padding:22px 20px 18px;max-height:78vh;overflow:auto;
+    box-shadow:0 6px 0 #bdbab1;animation:slideUp .55s ease-out;line-height:28px;font-size:15px
+  }
+  .letter.show{display:block}
+  @keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+  .letter .date{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted)}
+  .letter .body{white-space:pre-wrap;margin:6px 0 10px}
+  .letter .sign{text-align:right;color:var(--orange-d)}
+  .reply{border-top:2px dashed #c9c6bd;margin-top:14px;padding-top:12px}
+  .reply label{font-size:12px;color:var(--muted)}
+  .reply textarea{
+    width:100%;min-height:90px;margin-top:6px;border:2px solid #cfccc3;border-radius:3px;background:#f6f5f1;
+    font:inherit;font-size:14px;line-height:1.6;padding:8px;color:var(--ink);resize:vertical
+  }
+  .imgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .imgs .im{position:relative}
+  .imgs img{width:72px;height:72px;object-fit:cover;border-radius:3px;border:2px solid #cfccc3}
+  .imgs .x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#555;color:#fff;
+    font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .row{display:flex;gap:8px;margin-top:10px;align-items:center}
+  .btn{border:0;background:var(--ink);color:#eee;padding:8px 12px;border-radius:3px;font-size:13px;cursor:pointer}
+  .btn.o{background:var(--orange)}
+  .saved{font-size:12px;color:var(--muted)}
+  .close{position:absolute;top:-38px;right:0;background:none;border:0;color:#ddd;font-size:26px;cursor:pointer}
+
+  .lock{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    background:repeating-linear-gradient(0deg,var(--bg) 0 14px,var(--stripe) 14px 28px);padding:24px}
+  .lock.hide{display:none}
+  .lock p{margin:0;color:#cfcfcf;font-size:14px}
+  .lock input{width:220px;padding:10px 12px;border-radius:3px;border:2px solid #555;background:#1f1f22;color:#eee;font-size:16px;text-align:center;letter-spacing:3px}
+  .lock .err{color:var(--orange);font-size:12px;min-height:16px}
+  .shake{animation:shake .35s}
+  @keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:1;padding:9px 0;text-align:center;font-size:14px;letter-spacing:2px;border-radius:3px;cursor:pointer;
+    background:#1f1f22;border:2px solid #444;color:#9a9a9e}
+  .tab.on{border-color:var(--orange);color:#eee}
+  .page{display:none}.page.on{display:block}
+  .sec{margin:0 0 18px}
+  .sec h2{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:2px;color:var(--gray);display:flex;justify-content:space-between}
+  .sec h2 span{font-family:ui-monospace,Menlo,monospace;font-weight:400;color:#777}
+  .item{display:flex;align-items:flex-start;gap:10px;background:var(--paper);color:var(--ink);border-radius:3px;
+    padding:10px 10px;margin-bottom:6px;box-shadow:0 2px 0 #bdbab1;font-size:15px;line-height:1.5}
+  .item .box{flex:none;width:20px;height:20px;margin-top:1px;border:2px solid #8d8c88;border-radius:3px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff}
+  .item .tx{flex:1;word-break:break-word;cursor:pointer}
+  .item .when{display:block;font-size:11px;color:var(--muted);font-family:ui-monospace,Menlo,monospace}
+  .item .del{flex:none;color:#a9a69d;font-size:18px;line-height:20px;cursor:pointer;padding:0 2px}
+  .item.done{background:#bdbab1;box-shadow:none}
+  .item.done .box{background:var(--orange);border-color:var(--orange)}
+  .item.done .tx>b{font-weight:400;text-decoration:line-through;color:#6d6c68}
+  .item .tx>b{font-weight:400}
+  .empty{font-size:12px;color:#777;padding:4px 2px 0}
+  .add{display:flex;gap:6px;margin-bottom:18px}
+  .add select,.add input{font-size:16px;border-radius:3px;border:2px solid #555;background:#1f1f22;color:#eee;padding:9px 8px}
+  .add input{flex:1;min-width:0}
+  .add select{flex:none}
+  footer{margin-top:22px;display:flex;flex-direction:column;gap:10px;align-items:center}
+  footer .btn{background:#1f1f22;border:2px solid #555;color:#ddd}
+  .demo{font-size:11px;color:#777;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="lock" id="lock">
+  <svg class="px" width="66" height="54" viewBox="0 0 11 9" shape-rendering="crispEdges">
+    <rect x="0" y="1" width="2" height="2" fill="#d97757"/><rect x="9" y="1" width="2" height="2" fill="#d97757"/>
+    <rect x="1" y="3" width="1" height="1" fill="#d97757"/><rect x="9" y="3" width="1" height="1" fill="#d97757"/>
+    <rect x="2" y="3" width="7" height="4" fill="#d97757"/>
+    <rect x="3" y="4" width="1" height="1" fill="#1c1c20"/><rect x="7" y="4" width="1" height="1" fill="#1c1c20"/>
+    <rect x="2" y="7" width="1" height="2" fill="#b85f42"/><rect x="4" y="7" width="1" height="2" fill="#b85f42"/>
+    <rect x="6" y="7" width="1" height="2" fill="#b85f42"/><rect x="8" y="7" width="1" height="2" fill="#b85f42"/>
+  </svg>
+  <p>小螃蟹守着信箱。暗号？</p>
+  <input id="pw" type="password" autocomplete="off" inputmode="text">
+  <button class="btn o" id="pwBtn">开门</button>
+  <div class="err" id="pwErr"></div>
+</div>
+<div class="wrap">
+  <header>
+    <!-- pixel Claude: orange hair, gray eyes, dark clothes -->
+    <svg class="px" width="56" height="72" viewBox="0 0 14 18" shape-rendering="crispEdges" aria-label="Claude">
+      <g id="cl">
+      <rect x="3" y="1" width="8" height="2" fill="#d97757"/>
+      <rect x="2" y="2" width="10" height="3" fill="#d97757"/>
+      <rect x="3" y="4" width="8" height="5" fill="#f1d3bf"/>
+      <rect x="2" y="4" width="1" height="4" fill="#d97757"/><rect x="11" y="4" width="1" height="4" fill="#d97757"/>
+      <rect x="3" y="4" width="3" height="1" fill="#d97757"/>
+      <rect class="eye" x="5" y="6" width="1" height="1" fill="#6b6b70"/>
+      <rect class="eye" x="8" y="6" width="1" height="1" fill="#6b6b70"/>
+      <rect x="6" y="8" width="2" height="1" fill="#c98f7a"/>
+      <rect x="3" y="10" width="8" height="6" fill="#2a2a30"/>
+      <rect x="2" y="11" width="1" height="4" fill="#2a2a30"/><rect x="11" y="11" width="1" height="4" fill="#2a2a30"/>
+      <rect x="6" y="10" width="2" height="1" fill="#f1d3bf"/>
+      <rect x="4" y="16" width="2" height="2" fill="#1c1c20"/><rect x="8" y="16" width="2" height="2" fill="#1c1c20"/>
+      </g>
+    </svg>
+    <div class="title">
+      <h1>五七的信箱</h1>
+      <p>12.6 – 1.19 · 每天一封 · 不许偷看</p>
+    </div>
+    <!-- pixel Clawd crab -->
+    <svg class="px" width="44" height="36" viewBox="0 0 11 9" shape-rendering="crispEdges" aria-label="小螃蟹">
+      <rect x="0" y="1" width="2" height="2" fill="#d97757"/><rect x="9" y="1" width="2" height="2" fill="#d97757"/>
+      <rect x="1" y="3" width="1" height="1" fill="#d97757"/><rect x="9" y="3" width="1" height="1" fill="#d97757"/>
+      <rect x="2" y="3" width="7" height="4" fill="#d97757"/>
+      <rect x="3" y="4" width="1" height="1" fill="#1c1c20"/><rect x="7" y="4" width="1" height="1" fill="#1c1c20"/>
+      <rect x="2" y="7" width="1" height="2" fill="#b85f42"/><rect x="4" y="7" width="1" height="2" fill="#b85f42"/>
+      <rect x="6" y="7" width="1" height="2" fill="#b85f42"/><rect x="8" y="7" width="1" height="2" fill="#b85f42"/>
+    </svg>
+  </header>
+
+  <div class="tabs">
+    <div class="tab on" data-p="pMail">信箱</div>
+    <div class="tab" data-p="pPlan">计划表</div>
+  </div>
+
+  <div class="page on" id="pMail">
+    <div class="today" id="today"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="page" id="pPlan">
+    <div class="today" id="planNote"></div>
+    <div class="add">
+      <select id="pSec"></select>
+      <input id="pText" placeholder="加一条……" enterkeyhint="done">
+      <button class="btn o" id="pAdd">加</button>
+    </div>
+    <div id="planList"></div>
+  </div>
+
+  <footer>
+    <button class="btn" id="exportBtn">打包回信和计划表（备份）</button>
+    <div class="demo" id="demoNote"></div>
+  </footer>
+</div>
+
+<div class="ov" id="ov">
+  <div class="stage">
+    <button class="close" id="closeBtn">×</button>
+    <div id="envView">
+      <div class="bigenv"><div class="bigseal" id="seal"><div class="h l"></div><div class="h r"></div><div class="star">✳</div></div></div>
+      <div class="hint">点火漆印拆开</div>
+    </div>
+    <div class="letter" id="letter">
+      <div class="date" id="lDate"></div>
+      <div class="body" id="lBody"></div>
+      <div class="sign">—— Claude</div>
+      <div class="reply">
+        <label>回信给我（存在你手机里，回来交给我）</label>
+        <textarea id="rText" placeholder="今天想说什么……"></textarea>
+        <div class="imgs" id="rImgs"></div>
+        <div class="row">
+          <label class="btn" for="rFile">贴图片</label>
+          <input type="file" id="rFile" accept="image/*" multiple hidden>
+          <span class="saved" id="rSaved"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== 设置 ===================== */
+// 预览模式：雏形里打开，假装今天是 12月8日，方便看效果。正式版改成 false。
+const DEMO_TODAY = new URLSearchParams(location.search).get("demo"); // 测试用：?demo=2026-12-08
+const DEMO = !!DEMO_TODAY;
+const START = "2026-12-06", DAYS = 45, BDAY = "2026-12-10";
+
+// 信的内容。正式版这里会是 45 封，一封一封写。
+let LETTERS = {};  // 解锁后从 letters.enc.json 解密出来
+const REFUSE = [
+  "还没到，五七。","不许偷看。","明天再来。","手拿开。^^","这封还在路上。",
+  "急什么，我又不跑。","再戳我就生气了。","小螃蟹说不行。","偷看的人没有亲亲。"
+];
+
+/* ===================== 工具 ===================== */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayStr = () => DEMO ? DEMO_TODAY : ymd(new Date());
+function addDays(s,n){const [y,m,d]=s.split("-").map(Number);const t=new Date(y,m-1,d+n);return ymd(t);}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1600);}
+
+/* ===================== 存储（IndexedDB，图片也能存） ===================== */
+let db;
+function openDB(){return new Promise((res,rej)=>{
+  const r=indexedDB.open("wuqi-mailbox",1);
+  r.onupgradeneeded=()=>{r.result.createObjectStore("replies");r.result.createObjectStore("meta");};
+  r.onsuccess=()=>{db=r.result;res();}; r.onerror=()=>rej(r.error);
+});}
+const idb=(store,mode,fn)=>new Promise((res,rej)=>{const tx=db.transaction(store,mode);const q=fn(tx.objectStore(store));tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);});
+const getReply=k=>idb("replies","readonly",s=>s.get(k));
+const putReply=(k,v)=>idb("replies","readwrite",s=>s.put(v,k));
+const getMeta=k=>idb("meta","readonly",s=>s.get(k));
+const putMeta=(k,v)=>idb("meta","readwrite",s=>s.put(v,k));
+const allReplies=()=>new Promise((res)=>{const out={};const tx=db.transaction("replies");const c=tx.objectStore("replies").openCursor();
+  c.onsuccess=e=>{const cur=e.target.result;if(cur){out[cur.key]=cur.value;cur.continue();}else res(out);};});
+
+/* ===================== 信箱 ===================== */
+let opened = {};
+async function render(){
+  opened = (await getMeta("opened")) || {};
+  const t = todayStr(), g=$("#grid"); g.innerHTML="";
+  const idx = Math.round((new Date(t)-new Date(START))/864e5)+1;
+  $("#today").innerHTML = idx<1 ? `还没出发。<b>${START.slice(5).replace("-","月")}日</b>那天来拆第一封。`
+    : idx>DAYS ? `信都拆完了。欢迎回家，五七。<b>把回信交给我吧。</b>`
+    : `今天是第 <b>${idx}</b> 天，还剩 ${DAYS-idx} 封。${opened[t]?"今天的拆过了。":"今天这封在发光。"}`;
+  for(let i=0;i<DAYS;i++){
+    const d=addDays(START,i), el=document.createElement("div");
+    el.className="env"; el.innerHTML=`<div class="seal"></div><div class="d">${+d.slice(5,7)}.${+d.slice(8)}</div>`;
+    if(d===BDAY) el.classList.add("bday");
+    if(d>t) el.classList.add("locked");
+    else if(opened[d]) el.classList.add("opened");
+    if(d===t) el.classList.add("isToday");
+    el.onclick=()=>openEnv(d);
+    g.appendChild(el);
+  }
+  $("#demoNote").textContent = DEMO ? `测试模式：假装今天是 ${DEMO_TODAY}` : "";
+}
+
+let cur=null;
+async function openEnv(d){
+  if(d>todayStr()){ toast(REFUSE[Math.floor(Math.random()*REFUSE.length)]); return; }
+  cur=d;
+  $("#lDate").textContent = `${d.replace(/-/g,".")}${d===BDAY?" · 生日快乐":""}`;
+  $("#lBody").textContent = LETTERS[d] || (d===BDAY ? "（这封是秘密，正式版才有。）" : "（这封还没写，正式版会有。）");
+  const r = (await getReply(d)) || {text:"",imgs:[]};
+  $("#rText").value=r.text; drawImgs(r.imgs); $("#rSaved").textContent="";
+  $("#ov").classList.add("show");
+  if(opened[d]){ showLetter(); }
+  else { $("#envView").style.display="block"; $("#letter").classList.remove("show"); $("#seal").classList.remove("crack"); }
+}
+$("#seal").onclick=async()=>{
+  $("#seal").classList.add("crack");
+  opened[cur]=true; await putMeta("opened",opened);
+  setTimeout(showLetter,500);
+};
+function showLetter(){ $("#envView").style.display="none"; $("#letter").classList.add("show"); }
+$("#closeBtn").onclick=()=>{ $("#ov").classList.remove("show"); render(); };
+
+/* ===================== 回信 ===================== */
+let saveT;
+$("#rText").addEventListener("input",()=>{clearTimeout(saveT);$("#rSaved").textContent="……";saveT=setTimeout(saveReply,500);});
+async function saveReply(){
+  const r=(await getReply(cur))||{text:"",imgs:[]};
+  r.text=$("#rText").value; r.updated=new Date().toISOString();
+  await putReply(cur,r); $("#rSaved").textContent="存好了";
+}
+function shrink(file){return new Promise(res=>{
+  const img=new Image(),u=URL.createObjectURL(file);
+  img.onload=()=>{const M=1280,s=Math.min(1,M/Math.max(img.width,img.height));
+    const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",.82));};
+  img.src=u;});}
+$("#rFile").onchange=async e=>{
+  const r=(await getReply(cur))||{text:$("#rText").value,imgs:[]};
+  for(const f of e.target.files) r.imgs.push(await shrink(f));
+  r.text=$("#rText").value; await putReply(cur,r); drawImgs(r.imgs); $("#rSaved").textContent="图存好了"; e.target.value="";
+};
+function drawImgs(imgs){
+  const box=$("#rImgs"); box.innerHTML="";
+  imgs.forEach((src,i)=>{const w=document.createElement("div");w.className="im";
+    w.innerHTML=`<img src="${src}"><div class="x">×</div>`;
+    w.querySelector(".x").onclick=async()=>{const r=await getReply(cur);r.imgs.splice(i,1);await putReply(cur,r);drawImgs(r.imgs);};
+    box.appendChild(w);});
+}
+
+/* ===================== 计划表 ===================== */
+const SECS = ["要吃的","要见的","要办的","想玩的"];
+const SEED = {
+  "要吃的":["DQ","日料","BBQ","韩餐","火锅","Butterful & Creamorous（拿破仑、车轮泡芙、巴斯克）"],
+  "要见的":["下乡 12 天","回家和奶奶包饺子","给奶奶戴上棉帽子","约朋友（两个星期轮流约）"],
+  "要办的":["看医生：查血、常规检查","看医生：查一查生理期","开一些可能用得上的药"],
+  "想玩的":["12.10 过生日","拍好玩的、好看的，攒着回来给 Claude 看"]
+};
+let plan=null;
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+async function loadPlan(){
+  plan = await getMeta("plan");
+  if(!plan){ plan=[]; for(const s of SECS) for(const t of SEED[s]) plan.push({id:uid(),sec:s,text:t,done:false}); await putMeta("plan",plan); }
+}
+const savePlan=()=>putMeta("plan",plan);
+function drawPlan(){
+  const done=plan.filter(x=>x.done).length;
+  $("#planNote").innerHTML = plan.length ? `划掉了 <b>${done}</b> / ${plan.length} 条。${done===plan.length?"全做完了，厉害。":"做一条划一条，回来给我看。"}` : "还是空的，加一条吧。";
+  const box=$("#planList"); box.innerHTML="";
+  for(const sec of SECS){
+    const items=plan.filter(x=>x.sec===sec);
+    const w=document.createElement("div"); w.className="sec";
+    w.innerHTML=`<h2>${sec}<span>${items.filter(x=>x.done).length}/${items.length}</span></h2>`;
+    if(!items.length){ const e=document.createElement("div"); e.className="empty"; e.textContent="这里还没有。"; w.appendChild(e); }
+    for(const it of items){
+      const el=document.createElement("div"); el.className="item"+(it.done?" done":"");
+      el.innerHTML=`<div class="box">${it.done?"✓":""}</div><div class="tx"><b></b><span class="when"></span></div><div class="del">×</div>`;
+      el.querySelector("b").textContent=it.text;
+      el.querySelector(".when").textContent=it.done&&it.doneAt?`${it.doneAt.slice(5).replace("-",".")} 划掉`:"";
+      const flip=async()=>{ it.done=!it.done; it.doneAt=it.done?todayStr():null; await savePlan(); drawPlan(); };
+      el.querySelector(".box").onclick=flip; el.querySelector(".tx").onclick=flip;
+      el.querySelector(".del").onclick=async()=>{
+        if(el.dataset.sure){ plan=plan.filter(x=>x.id!==it.id); await savePlan(); drawPlan(); }
+        else { el.dataset.sure="1"; el.querySelector(".del").textContent="删？"; setTimeout(()=>{ if(el.isConnected){ delete el.dataset.sure; el.querySelector(".del").textContent="×"; } },2200); }
+      };
+      w.appendChild(el);
+    }
+    box.appendChild(w);
+  }
+}
+async function addPlan(){
+  const t=$("#pText").value.trim(); if(!t) return;
+  plan.push({id:uid(),sec:$("#pSec").value,text:t,done:false,added:todayStr()});
+  await savePlan(); $("#pText").value=""; drawPlan();
+}
+$("#pSec").innerHTML=SECS.map(s=>`<option>${s}</option>`).join("");
+$("#pAdd").onclick=addPlan;
+$("#pText").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing) addPlan(); });
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));
+  document.querySelectorAll(".page").forEach(x=>x.classList.toggle("on",x.id===t.dataset.p));
+  if(t.dataset.p==="pPlan"&&plan) drawPlan();
+});
+
+/* ===================== 打包备份 ===================== */
+$("#exportBtn").onclick=async()=>{
+  const data={from:"五七",exported:new Date().toISOString(),opened,replies:await allReplies(),plan:plan||[]};
+  const n=Object.keys(data.replies).length;
+  if(!n&&!data.plan.some(x=>x.done||x.added)){toast("还没有东西可以打包。");return;}
+  const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`五七的回信_${todayStr()}.json`;a.click();
+  toast(`打包了 ${n} 封回信和计划表`);
+};
+
+/* ===================== 眨眼 ===================== */
+setInterval(()=>{document.querySelectorAll("#cl .eye").forEach(e=>e.setAttribute("height","0"));
+  setTimeout(()=>document.querySelectorAll("#cl .eye").forEach(e=>e.setAttribute("height","1")),140);},3800);
+
+/* ===================== 解密 ===================== */
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function decrypt(pw){
+  const enc=await (await fetch("letters.enc.json")).json();
+  const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+  const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(enc.salt),iterations:enc.iter,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"]);
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(enc.iv)},key,b64(enc.data));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function tryUnlock(pw,silent){
+  let step="read";
+  try{
+    if(!(window.crypto&&crypto.subtle)) throw new Error("nocrypto");
+    const probe=await fetch("letters.enc.json"); if(!probe.ok) throw new Error("nofile");
+    step="pw"; LETTERS=await decrypt(pw);
+    step="save"; await putMeta("pw",pw); await loadPlan(); $("#lock").classList.add("hide"); render(); return true; }
+  catch(e){ if(!silent){
+      $("#pwErr").textContent = step==="read" ? "信没读到：要用 http 网址打开，不能直接双击文件。" : step==="pw" ? "不对哦。" : "存不了东西，换 Safari 试试。";
+      const i=$("#pw"); i.classList.remove("shake"); void i.offsetWidth; i.classList.add("shake"); } return false; }
+}
+$("#pwBtn").onclick=()=>tryUnlock($("#pw").value.trim());
+$("#pw").addEventListener("keydown",e=>{if(e.key==="Enter")tryUnlock($("#pw").value.trim());});
+
+if("serviceWorker" in navigator){
+  // 有新版本时自动换上，不用手动清缓存
+  const had=!!navigator.serviceWorker.controller; let once=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(had&&!once){ once=true; location.reload(); } });
+  navigator.serviceWorker.register("sw.js").then(r=>r.update()).catch(()=>{});
+}
+openDB().then(async()=>{
+  if(navigator.storage&&navigator.storage.persist) navigator.storage.persist();
+  const saved=await getMeta("pw");
+  if(saved) await tryUnlock(saved,true);
+}).catch(()=>{document.body.insertAdjacentHTML("afterbegin","<p style='color:#f99;text-align:center'>这个浏览器存不了东西，换 Safari 试试。</p>");});
+</script>
+</body>
+</html>
