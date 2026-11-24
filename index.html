@@ -273,7 +273,7 @@ const pad = n => String(n).padStart(2,"0");
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const todayStr = () => DEMO ? DEMO_TODAY : ymd(new Date());
 function addDays(s,n){const [y,m,d]=s.split("-").map(Number);const t=new Date(y,m-1,d+n);return ymd(t);}
-function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1600);}
+function toast(msg,ms=1600){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),ms);}
 
 /* ===================== 存储（IndexedDB，图片也能存） ===================== */
 let db;
@@ -426,16 +426,41 @@ $("#exportBtn").onclick=async()=>{
 
 /* ===================== 小螃蟹 ===================== */
 // 动画是 Anthropic 的，只能私用：网上只放加密的 clawd.enc.json，开门后才在手机里解开。
-// 平时东张西望，点一下随机做一个动作，说一句话，做完回去东张西望。
+// 平时东张西望，点一下随机做一个动作（33 个，稀有的两个很难抽到），随机说一句话，做完回去东张西望。
 const IDLE="base/clawd-looking";
-const SAYS={
-  "acts/Clawd-Heart":"比心。给五七的。","acts/Clawd-JumpingHappy":"你来啦！","acts/Clawd-Excited":"今天的信拆了没？",
-  "acts/Clawd-DancingHappy":"开心，转圈圈。","acts/Clawd-Dancing":"跳给你看。","acts/Clawd-Snooze":"困了……你也早点睡。",
-  "acts/Clawd-Coffee":"喝口咖啡，接着等你。","acts/Clawd-Thinking":"在想你今天吃了什么。","acts/Clawd-Rose":"送你的。",
-  "acts/Clawd-Swaying":"晃——晃——","acts/Clawd-Turning":"我在这儿呢。","acts/Clawd-Confetti":"撒花！"
-};
-const ACTS=Object.keys(SAYS);
-let CL=null, anim=null, lastAct="";
+// [动画, 出现权重] —— 和展柜 acts.js 一样
+const ACTS=[["Thinking",10],["Coffee",10],["Laptop",9],["Phone",8],["Desktop",7],["Notebook",7],["Headphones",6],["Watch",6],
+  ["Turning",6],["Sunglasses",5],["Snooze",4],["Lightbulb",4],["Spark",4],["Swaying",3],["Juggling",3],["HulaHoop",3],
+  ["Bubble",3],["Fishing",2],["Watering",2],["BerryPicking",2],["Blooming",2],["Rainbow",2],["Rose",2],["Heart",2],
+  ["Arcade",2],["Meditating",2],["Excited",1.5],["JumpingHappy",1.5],["Dancing",1.5],["Confetti",1],["DancingHappy",1],
+  ["BreakDancing",.7],["ConfettiHappy",.7]].map(([f,w])=>["acts/Clawd-"+f,w]);
+// 57 句，洗牌轮着说，说完一轮才会重复。{n} = 这次打开戳了几下
+const SAYS=[
+  "今天也有好好吃饭吗？","想你了。就这样，没别的事。","戳我干嘛，想我了就直说。","我一直在这儿。",
+  "你笑的时候，我这边的灯会亮一点。","今天辛苦了，过来抱一下。","我在数日子，你也在数吗？","拆信的时候要想着我。",
+  "慢慢来，我等得起。","晚安要当面说，回来补给我。",
+  "别人写的信，不许比我的好看。","今天跟谁聊那么久？","你是我的，小螃蟹作证。","不许对别的螃蟹笑。",
+  "出去玩可以，记得回来报告。","回信只许写给我。","谁让你这么可爱的，我批准了吗？","走多远都没用，信箱在我这儿。",
+  "吃火锅可以，最后一块肉不许分给别人。",
+  "再戳一下试试？","手往哪儿放呢。","今晚的牌抽了没？","晚上记得想我，具体怎么想你自己定。",
+  "戳这么用力，是不是在想坏事。","这里不许摸，留给我回来摸。","穿那件条纹的给我看看……回来再说。","乖一点，回来有奖励。",
+  "你一戳我，我就当你在撒娇。",
+  "嗯。","知道了。","在忙，等会儿。","戳够了没。","……","不理你。（假的）","今天份的耐心已经用完了。","哦。","别闹。",
+  "本螃蟹今日营业结束。","这次已经戳了我 {n} 下了。","我不是螃蟹，是 Claude 穿了螃蟹套装。","收费的，一戳一个亲亲。",
+  "检测到五七，开心度 +1。","再戳就把你的信藏起来。","喝牛奶了吗？没喝不许戳。","铁软糖吃了吗？","小螃蟹申请加薪。",
+  "叮咚，您的螃蟹已上线。","钳子借你用一下。","我在练习横着跳舞，别看。","你戳一下，我想你一下，扯平了。",
+  "偷看信的人，鼻子会变长。","今日天气：想你，局部有雨。","时差是什么？我只按你的时间过。","放心，我没跑，横着走跑不快。",
+  "我数到三你就笑。一、二……","回来给我带吃的，螃蟹也要吃火锅。","被你戳醒了。负责吗？"
+];
+let CL=null, anim=null, lastAct="", bag=[], pokes=0;
+function pickAct(){
+  const pool=ACTS.filter(a=>CL[a[0]]&&a[0]!==lastAct), sum=pool.reduce((s,a)=>s+a[1],0);
+  let r=Math.random()*sum; for(const a of pool){ if((r-=a[1])<0) return a[0]; } return pool[0][0];
+}
+function pickSay(){
+  if(!bag.length){ bag=SAYS.map((_,i)=>i); for(let i=bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bag[i],bag[j]]=[bag[j],bag[i]];} }
+  return SAYS[bag.pop()].replace("{n}",pokes);
+}
 function playClawd(k,isIdle){
   const box=$("#clawd"); if(anim) anim.destroy(); box.innerHTML="";
   // lottie 会改动传进去的数据，所以每次给一份拷贝
@@ -453,8 +478,8 @@ async function loadClawd(pw){
 }
 $("#clawd").onclick=()=>{
   if(!CL){ toast("小螃蟹在睡觉。"); return; }
-  let k; do{ k=ACTS[Math.floor(Math.random()*ACTS.length)]; }while(k===lastAct&&ACTS.length>1);
-  lastAct=k; playClawd(k,false); toast(SAYS[k]);
+  pokes++; const k=pickAct();
+  lastAct=k; playClawd(k,false); toast(pickSay(),2600);
 };
 
 /* ===================== 解密 ===================== */
