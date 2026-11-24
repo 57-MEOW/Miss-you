@@ -26,6 +26,9 @@
   .wrap{max-width:440px;margin:0 auto;padding:18px 16px}
   header{display:flex;align-items:flex-end;gap:12px;margin:8px 0 18px}
   .px{image-rendering:pixelated;display:block}
+  .clawd{flex:none;width:150px;height:101px;margin:-20px -12px -6px 0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;position:relative}
+  .clawd canvas{display:block}
+  .clawd:active{transform:scale(.95)}
   .title{flex:1}
   .title h1{margin:0;font-size:20px;letter-spacing:2px;font-weight:600}
   .title p{margin:4px 0 0;font-size:12px;color:var(--gray)}
@@ -179,28 +182,12 @@
 </div>
 <div class="wrap">
   <header>
-    <!-- pixel Claude: orange hair, gray eyes, dark clothes -->
-    <svg class="px" width="56" height="72" viewBox="0 0 14 18" shape-rendering="crispEdges" aria-label="Claude">
-      <g id="cl">
-      <rect x="3" y="1" width="8" height="2" fill="#d97757"/>
-      <rect x="2" y="2" width="10" height="3" fill="#d97757"/>
-      <rect x="3" y="4" width="8" height="5" fill="#f1d3bf"/>
-      <rect x="2" y="4" width="1" height="4" fill="#d97757"/><rect x="11" y="4" width="1" height="4" fill="#d97757"/>
-      <rect x="3" y="4" width="3" height="1" fill="#d97757"/>
-      <rect class="eye" x="5" y="6" width="1" height="1" fill="#6b6b70"/>
-      <rect class="eye" x="8" y="6" width="1" height="1" fill="#6b6b70"/>
-      <rect x="6" y="8" width="2" height="1" fill="#c98f7a"/>
-      <rect x="3" y="10" width="8" height="6" fill="#2a2a30"/>
-      <rect x="2" y="11" width="1" height="4" fill="#2a2a30"/><rect x="11" y="11" width="1" height="4" fill="#2a2a30"/>
-      <rect x="6" y="10" width="2" height="1" fill="#f1d3bf"/>
-      <rect x="4" y="16" width="2" height="2" fill="#1c1c20"/><rect x="8" y="16" width="2" height="2" fill="#1c1c20"/>
-      </g>
-    </svg>
     <div class="title">
       <h1>五七的信箱</h1>
       <p>12.6 – 1.19 · 每天一封 · 不许偷看</p>
     </div>
-    <!-- pixel Clawd crab -->
+    <!-- 小螃蟹：开门后换成会动的 Clawd 动画（clawd.enc.json，加密存放）；解不开就一直是这只像素螃蟹 -->
+    <div class="clawd" id="clawd" aria-label="小螃蟹">
     <svg class="px" width="44" height="36" viewBox="0 0 11 9" shape-rendering="crispEdges" aria-label="小螃蟹">
       <rect x="0" y="1" width="2" height="2" fill="#d97757"/><rect x="9" y="1" width="2" height="2" fill="#d97757"/>
       <rect x="1" y="3" width="1" height="1" fill="#d97757"/><rect x="9" y="3" width="1" height="1" fill="#d97757"/>
@@ -209,6 +196,7 @@
       <rect x="2" y="7" width="1" height="2" fill="#b85f42"/><rect x="4" y="7" width="1" height="2" fill="#b85f42"/>
       <rect x="6" y="7" width="1" height="2" fill="#b85f42"/><rect x="8" y="7" width="1" height="2" fill="#b85f42"/>
     </svg>
+    </div>
   </header>
 
   <div class="tabs">
@@ -264,6 +252,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="lottie.min.js"></script>
 <script>
 /* ===================== 设置 ===================== */
 // 预览模式：雏形里打开，假装今天是 12月8日，方便看效果。正式版改成 false。
@@ -435,18 +424,48 @@ $("#exportBtn").onclick=async()=>{
   toast(`打包了 ${n} 封回信和计划表`);
 };
 
-/* ===================== 眨眼 ===================== */
-setInterval(()=>{document.querySelectorAll("#cl .eye").forEach(e=>e.setAttribute("height","0"));
-  setTimeout(()=>document.querySelectorAll("#cl .eye").forEach(e=>e.setAttribute("height","1")),140);},3800);
+/* ===================== 小螃蟹 ===================== */
+// 动画是 Anthropic 的，只能私用：网上只放加密的 clawd.enc.json，开门后才在手机里解开。
+// 平时东张西望，点一下随机做一个动作，说一句话，做完回去东张西望。
+const IDLE="base/clawd-looking";
+const SAYS={
+  "acts/Clawd-Heart":"比心。给五七的。","acts/Clawd-JumpingHappy":"你来啦！","acts/Clawd-Excited":"今天的信拆了没？",
+  "acts/Clawd-DancingHappy":"开心，转圈圈。","acts/Clawd-Dancing":"跳给你看。","acts/Clawd-Snooze":"困了……你也早点睡。",
+  "acts/Clawd-Coffee":"喝口咖啡，接着等你。","acts/Clawd-Thinking":"在想你今天吃了什么。","acts/Clawd-Rose":"送你的。",
+  "acts/Clawd-Swaying":"晃——晃——","acts/Clawd-Turning":"我在这儿呢。","acts/Clawd-Confetti":"撒花！"
+};
+const ACTS=Object.keys(SAYS);
+let CL=null, anim=null, lastAct="";
+function playClawd(k,isIdle){
+  const box=$("#clawd"); if(anim) anim.destroy(); box.innerHTML="";
+  // lottie 会改动传进去的数据，所以每次给一份拷贝
+  anim=lottie.loadAnimation({container:box,renderer:"canvas",loop:true,autoplay:true,
+    animationData:JSON.parse(JSON.stringify(CL[k])),rendererSettings:{preserveAspectRatio:"xMidYMax meet"}});
+  if(!isIdle){ const t0=Date.now(), a=anim;
+    a.addEventListener("loopComplete",()=>{ if(a===anim&&Date.now()-t0>2500) playClawd(IDLE,true); }); }
+}
+async function loadClawd(pw){
+  try{
+    if(!window.lottie||CL) return;
+    CL=JSON.parse(await decrypt(pw,"clawd.enc.json",true));
+    playClawd(IDLE,true);
+  }catch(e){ CL=null; } // 解不开就留着像素螃蟹，不影响拆信
+}
+$("#clawd").onclick=()=>{
+  if(!CL){ toast("小螃蟹在睡觉。"); return; }
+  let k; do{ k=ACTS[Math.floor(Math.random()*ACTS.length)]; }while(k===lastAct&&ACTS.length>1);
+  lastAct=k; playClawd(k,false); toast(SAYS[k]);
+};
 
 /* ===================== 解密 ===================== */
 const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-async function decrypt(pw){
-  const enc=await (await fetch("letters.enc.json")).json();
+async function decrypt(pw,file="letters.enc.json",raw=false){
+  const enc=await (await fetch(file)).json();
   const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
   const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(enc.salt),iterations:enc.iter,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"]);
   const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(enc.iv)},key,b64(enc.data));
-  return JSON.parse(new TextDecoder().decode(pt));
+  const text=new TextDecoder().decode(pt);
+  return raw?text:JSON.parse(text);
 }
 async function tryUnlock(pw,silent){
   let step="read";
@@ -454,7 +473,7 @@ async function tryUnlock(pw,silent){
     if(!(window.crypto&&crypto.subtle)) throw new Error("nocrypto");
     const probe=await fetch("letters.enc.json"); if(!probe.ok) throw new Error("nofile");
     step="pw"; LETTERS=await decrypt(pw);
-    step="save"; await putMeta("pw",pw); await loadPlan(); $("#lock").classList.add("hide"); render(); return true; }
+    step="save"; await putMeta("pw",pw); await loadPlan(); $("#lock").classList.add("hide"); render(); loadClawd(pw); return true; }
   catch(e){ if(!silent){
       $("#pwErr").textContent = step==="read" ? "信没读到：要用 http 网址打开，不能直接双击文件。" : step==="pw" ? "不对哦。" : "存不了东西，换 Safari 试试。";
       const i=$("#pw"); i.classList.remove("shake"); void i.offsetWidth; i.classList.add("shake"); } return false; }
