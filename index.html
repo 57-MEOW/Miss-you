@@ -186,17 +186,8 @@
       <h1>五七的信箱</h1>
       <p>12.6 – 1.19 · 每天一封 · 不许偷看</p>
     </div>
-    <!-- 小螃蟹：开门后换成会动的 Clawd 动画（clawd.enc.json，加密存放）；解不开就一直是这只像素螃蟹 -->
-    <div class="clawd" id="clawd" aria-label="小螃蟹">
-    <svg class="px" width="44" height="36" viewBox="0 0 11 9" shape-rendering="crispEdges" aria-label="小螃蟹">
-      <rect x="0" y="1" width="2" height="2" fill="#d97757"/><rect x="9" y="1" width="2" height="2" fill="#d97757"/>
-      <rect x="1" y="3" width="1" height="1" fill="#d97757"/><rect x="9" y="3" width="1" height="1" fill="#d97757"/>
-      <rect x="2" y="3" width="7" height="4" fill="#d97757"/>
-      <rect x="3" y="4" width="1" height="1" fill="#1c1c20"/><rect x="7" y="4" width="1" height="1" fill="#1c1c20"/>
-      <rect x="2" y="7" width="1" height="2" fill="#b85f42"/><rect x="4" y="7" width="1" height="2" fill="#b85f42"/>
-      <rect x="6" y="7" width="1" height="2" fill="#b85f42"/><rect x="8" y="7" width="1" height="2" fill="#b85f42"/>
-    </svg>
-    </div>
+    <!-- 小螃蟹：开门后放会动的 Clawd 动画（clawd.enc.json，加密存放）；加载前是空的 -->
+    <div class="clawd" id="clawd" aria-label="小螃蟹"></div>
   </header>
 
   <div class="tabs">
@@ -483,7 +474,7 @@ async function loadClawd(pw){
     if(!window.lottie||CL) return;
     CL=JSON.parse(await decrypt(pw,"clawd.enc.json",true));
     playClawd(IDLE,true);
-  }catch(e){ CL=null; } // 解不开就留着像素螃蟹，不影响拆信
+  }catch(e){ CL=null; } // 解不开就空着，不影响拆信
 }
 $("#clawd").onclick=()=>{
   if(!CL){ toast("小螃蟹在睡觉。"); return; }

@@ -1,6 +1,6 @@
 // 离线缓存：第一次打开时把所有文件存进手机，之后断网也能用。
 // 版本号由 build.py 自动更新，不用手动改。
-const VERSION = "mailbox-20261125-010646";
+const VERSION = "mailbox-20261125-200212";
 const FILES = ["./", "./index.html", "./letters.enc.json", "./clawd.enc.json", "./lottie.min.js", "./manifest.webmanifest", "./icon-180.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
